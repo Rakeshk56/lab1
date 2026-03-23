@@ -1,0 +1,122 @@
+# =============================================================================
+#  LAB 2: SCHEDULED WORKFLOW (Cron)
+# =============================================================================
+#
+#  This workflow demonstrates TIME-BASED triggers using cron expressions.
+#  It runs on a schedule AND can be triggered manually via workflow_dispatch.
+#
+#  CRON EXPRESSION FORMAT:
+#    ┌─────────── minute       (0 - 59)
+#    │ ┌───────── hour         (0 - 23)
+#    │ │ ┌─────── day of month (1 - 31)
+#    │ │ │ ┌───── month        (1 - 12)
+#    │ │ │ │ ┌─── day of week  (0 - 6, Sunday = 0)
+#    │ │ │ │ │
+#    * * * * *
+#
+#  EXAMPLES:
+#    "*/5 * * * *"   = every 5 minutes
+#    "0 * * * *"     = every hour (at minute 0)
+#    "0 0 * * *"     = every day at midnight
+#    "0 9 * * 1-5"   = weekdays at 9am
+#    "0 0 1 * *"     = first day of every month
+#
+#  IMPORTANT NOTES:
+#    - All cron times are in UTC (not your local timezone!)
+#    - Scheduled workflows only run on the DEFAULT branch (usually main)
+#    - GitHub may delay scheduled runs during high load periods
+#    - Minimum interval is every 5 minutes (GitHub will throttle faster ones)
+#
+#  TOOL: Use https://crontab.guru to build and understand cron expressions
+#
+# =============================================================================
+
+name: "Lab 2 - Scheduled Health Check"
+
+# ---------------------------------------------------------------------------
+# TRIGGERS: Schedule + Manual
+# ---------------------------------------------------------------------------
+on:
+  # SCHEDULE: Run automatically on a cron schedule
+  # This runs every 5 minutes (the minimum GitHub allows).
+  # For a real project, you'd use something less frequent like hourly.
+  schedule:
+    - cron: "*/5 * * * *"
+
+  # WORKFLOW_DISPATCH: Allow manual triggering from the GitHub UI
+  # This is VERY useful for testing! You can click "Run workflow" in the
+  # Actions tab instead of waiting for the cron schedule.
+  workflow_dispatch:
+
+# ---------------------------------------------------------------------------
+# JOBS
+# ---------------------------------------------------------------------------
+jobs:
+
+  # =========================================================================
+  # JOB: Health Check
+  # =========================================================================
+  health-check:
+    name: "Scheduled System Health Check"
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Print the current server time
+      # Compare this with when the cron was supposed to run.
+      # You'll notice GitHub scheduled runs can be delayed by a few minutes.
+      - name: "Print Server Time"
+        run: |
+          echo "============================================"
+          echo "  SCHEDULED HEALTH CHECK"
+          echo "============================================"
+          echo ""
+          echo "  Current UTC Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "  Trigger:          ${{ github.event_name }}"
+          echo ""
+          echo "  If trigger is 'schedule', this was triggered by cron."
+          echo "  If trigger is 'workflow_dispatch', you clicked 'Run workflow'."
+
+      # Step 2: System health information
+      - name: "System Health Check"
+        run: |
+          echo "============================================"
+          echo "  SYSTEM HEALTH"
+          echo "============================================"
+          echo ""
+          echo "--- Uptime ---"
+          uptime
+          echo ""
+          echo "--- Disk Usage ---"
+          df -h / | tail -1
+          echo ""
+          echo "--- Memory Usage ---"
+          free -h | head -2
+          echo ""
+          echo "--- CPU Load ---"
+          echo "CPU cores: $(nproc)"
+          cat /proc/loadavg
+          echo ""
+          echo "--- Running Processes ---"
+          echo "Total processes: $(ps aux | wc -l)"
+
+      # Step 3: Check GitHub API rate limit
+      # This uses the GitHub API to check how many API calls remain.
+      # Useful for monitoring if your workflows are hitting rate limits.
+      - name: "GitHub API Rate Limit Check"
+        run: |
+          echo "============================================"
+          echo "  GITHUB API RATE LIMIT"
+          echo "============================================"
+          echo ""
+          curl -s https://api.github.com/rate_limit | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          core = data['resources']['core']
+          print(f\"  Limit:     {core['limit']}\")
+          print(f\"  Remaining: {core['remaining']}\")
+          print(f\"  Used:      {core['used']}\")
+          " 2>/dev/null || echo "  (Could not fetch rate limit info)"
+          echo ""
+          echo "============================================"
+          echo "  Health check complete!"
+          echo "============================================"

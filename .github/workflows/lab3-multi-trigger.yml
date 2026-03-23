@@ -1,0 +1,202 @@
+# =============================================================================
+#  LAB 3: MULTIPLE EVENT TRIGGERS
+# =============================================================================
+#
+#  This workflow responds to MULTIPLE different events:
+#    - push:          When code is pushed (with a paths filter!)
+#    - pull_request:  When a PR is opened or updated
+#    - issues:        When an issue is opened
+#
+#  KEY CONCEPTS:
+#    - paths filter:  Only trigger on changes to specific files/folders
+#    - types filter:  Only trigger on specific activity types
+#    - conditionals:  Use if: to run steps only for certain events
+#    - github context: Access event metadata (who, what, when, why)
+#
+#  EXPERIMENT PLAN:
+#    1. Push a change to a file in app/   --> workflow triggers
+#    2. Push a change to notes.txt        --> workflow does NOT trigger
+#    3. Open a pull request               --> workflow triggers
+#    4. Open an issue                     --> workflow triggers
+#    5. Compare the github context across all three triggers
+#
+# =============================================================================
+
+name: "Lab 3 - Multi-Trigger Workflow"
+
+# ---------------------------------------------------------------------------
+# TRIGGERS: Multiple events with filters
+# ---------------------------------------------------------------------------
+on:
+  # PUSH: Only trigger when files in the app/ directory change
+  # This prevents the workflow from running on README edits, docs, etc.
+  push:
+    branches: [main]
+    paths:
+      - "app/**"             # Only changes to application code
+      - "tests/**"           # Or changes to tests
+      - "requirements.txt"   # Or dependency changes
+
+  # PULL REQUEST: Trigger when PRs are opened or updated
+  # types: controls which PR activities trigger the workflow
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+  # ISSUES: Trigger when issues are opened
+  # This lets you automate responses to new issues
+  issues:
+    types: [opened]
+
+# ---------------------------------------------------------------------------
+# JOBS
+# ---------------------------------------------------------------------------
+jobs:
+
+  # =========================================================================
+  # JOB 1: Identify the trigger
+  # =========================================================================
+  # This job runs for ALL events and prints what triggered the workflow.
+  # It helps you understand the github context object.
+
+  identify-trigger:
+    name: "Identify Trigger Event"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "What triggered this workflow?"
+        run: |
+          echo "=============================================="
+          echo "  WORKFLOW TRIGGER ANALYSIS"
+          echo "=============================================="
+          echo ""
+          echo "  Event:      ${{ github.event_name }}"
+          echo "  Actor:      ${{ github.actor }}"
+          echo "  Repository: ${{ github.repository }}"
+          echo "  Ref:        ${{ github.ref }}"
+          echo "  SHA:        ${{ github.sha }}"
+          echo "  Workflow:   ${{ github.workflow }}"
+          echo "  Run ID:     ${{ github.run_id }}"
+          echo ""
+
+      # Conditional steps based on event type
+      - name: "Push Event Details"
+        if: github.event_name == 'push'
+        run: |
+          echo "=== PUSH EVENT ==="
+          echo "  Branch:        ${{ github.ref }}"
+          echo "  Commit SHA:    ${{ github.sha }}"
+          echo "  Commit Msg:    ${{ github.event.head_commit.message }}"
+          echo "  Pusher:        ${{ github.event.pusher.name }}"
+          echo ""
+          echo "  This was triggered because files in app/, tests/,"
+          echo "  or requirements.txt were changed in this push."
+
+      - name: "Pull Request Event Details"
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "=== PULL REQUEST EVENT ==="
+          echo "  PR Number:     #${{ github.event.pull_request.number }}"
+          echo "  PR Title:      ${{ github.event.pull_request.title }}"
+          echo "  PR Author:     ${{ github.event.pull_request.user.login }}"
+          echo "  Source Branch: ${{ github.event.pull_request.head.ref }}"
+          echo "  Target Branch: ${{ github.event.pull_request.base.ref }}"
+          echo "  Action:        ${{ github.event.action }}"
+          echo ""
+          echo "  Note: github.ref for PRs is refs/pull/NUMBER/merge"
+          echo "  This is DIFFERENT from push events (refs/heads/BRANCH)"
+
+      - name: "Issue Event Details"
+        if: github.event_name == 'issues'
+        run: |
+          echo "=== ISSUE EVENT ==="
+          echo "  Issue Number:  #${{ github.event.issue.number }}"
+          echo "  Issue Title:   ${{ github.event.issue.title }}"
+          echo "  Issue Author:  ${{ github.event.issue.user.login }}"
+          echo "  Action:        ${{ github.event.action }}"
+          echo ""
+          echo "  This workflow can automate issue responses!"
+          echo "  In a real project, you might:"
+          echo "    - Auto-label issues"
+          echo "    - Assign reviewers"
+          echo "    - Post a welcome comment"
+
+  # =========================================================================
+  # JOB 2: Run Tests (only on push or pull_request)
+  # =========================================================================
+  # Tests should run when code changes (push/PR), but NOT when an issue
+  # is opened (there's no code change to test).
+
+  run-tests:
+    name: "Run Tests"
+    runs-on: ubuntu-latest
+    needs: identify-trigger
+
+    # CONDITIONAL: Only run this job on push or pull_request events
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "Install dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "Run unit tests"
+        run: |
+          echo "Running unit tests..."
+          python -m pytest tests/unit/ -v --tb=short
+
+      - name: "Run integration tests"
+        run: |
+          echo "Running integration tests..."
+          python -m pytest tests/integration/ -v --tb=short
+
+      - name: "Test Summary"
+        run: |
+          echo "=============================================="
+          echo "  ALL TESTS PASSED!"
+          echo "  Triggered by: ${{ github.event_name }}"
+          echo "=============================================="
+
+  # =========================================================================
+  # JOB 3: Issue Response (only on issues)
+  # =========================================================================
+  # This job ONLY runs when an issue is opened.
+  # It demonstrates how workflows can respond to non-code events.
+
+  issue-response:
+    name: "Issue Auto-Response"
+    runs-on: ubuntu-latest
+    needs: identify-trigger
+
+    # CONDITIONAL: Only run this job when an issue is opened
+    if: github.event_name == 'issues'
+
+    steps:
+      - name: "Log issue details"
+        run: |
+          echo "=============================================="
+          echo "  NEW ISSUE DETECTED"
+          echo "=============================================="
+          echo ""
+          echo "  Issue #${{ github.event.issue.number }}"
+          echo "  Title: ${{ github.event.issue.title }}"
+          echo "  Author: ${{ github.event.issue.user.login }}"
+          echo ""
+          echo "  In a real project, this job could:"
+          echo "    - Post an automated welcome comment"
+          echo "    - Apply labels based on issue content"
+          echo "    - Assign the issue to a team member"
+          echo "    - Send a Slack notification"
+          echo "    - Create a Jira ticket"
+          echo ""
+          echo "  For now, we just log the information."
+          echo "=============================================="

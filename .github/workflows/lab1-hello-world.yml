@@ -1,0 +1,134 @@
+# =============================================================================
+#  LAB 1: HELLO WORLD WORKFLOW
+# =============================================================================
+#
+#  This is the simplest possible GitHub Actions workflow.
+#  It runs on every push to main and prints some messages.
+#
+#  KEY CONCEPTS:
+#    - name:     The display name shown in the Actions tab
+#    - on:       WHEN the workflow runs (the trigger/event)
+#    - jobs:     WHAT the workflow does (groups of steps)
+#    - runs-on:  WHERE the job runs (which runner/VM)
+#    - steps:    The individual commands within a job
+#
+#  ANATOMY OF A WORKFLOW:
+#    ┌─────────────────────────────────┐
+#    │  name: "My Workflow"            │ <-- Display name
+#    │                                 │
+#    │  on: push                       │ <-- Trigger
+#    │                                 │
+#    │  jobs:                          │
+#    │    job-name:                    │
+#    │      runs-on: ubuntu-latest    │ <-- Runner
+#    │      steps:                    │
+#    │        - name: "Step 1"        │
+#    │          run: echo "Hello"     │ <-- Command
+#    └─────────────────────────────────┘
+#
+#  AFTER PUSHING:
+#    1. Go to your repo on GitHub
+#    2. Click the "Actions" tab
+#    3. You'll see this workflow listed
+#    4. Click on it to see the logs
+#
+# =============================================================================
+
+name: "Lab 1 - Hello World"
+
+# ---------------------------------------------------------------------------
+# TRIGGER: When should this workflow run?
+# ---------------------------------------------------------------------------
+# "push" means: every time someone pushes commits to the specified branches.
+# You can also use: pull_request, schedule, workflow_dispatch, etc.
+
+on:
+  push:
+    branches: [main]
+
+# ---------------------------------------------------------------------------
+# JOBS: What should the workflow do?
+# ---------------------------------------------------------------------------
+# Each job runs on a SEPARATE virtual machine (runner).
+# Jobs run IN PARALLEL by default (unless you use 'needs:').
+
+jobs:
+
+  # =========================================================================
+  # JOB 1: Say Hello
+  # =========================================================================
+  say-hello:
+    name: "Say Hello to the World"
+    runs-on: ubuntu-latest           # Use a fresh Ubuntu VM
+
+    steps:
+      # Step 1: The classic Hello World
+      - name: "Hello World"
+        run: echo "Hello, World! This is my first GitHub Actions workflow!"
+
+      # Step 2: Show information about the runner (the VM running this job)
+      - name: "Show Runner Info"
+        run: |
+          echo "=== Runner Information ==="
+          echo "Operating System: $(uname -s)"
+          echo "OS Version:       $(uname -r)"
+          echo "Architecture:     $(uname -m)"
+          echo "Hostname:         $(hostname)"
+          echo "Working Dir:      $(pwd)"
+          echo "User:             $(whoami)"
+          echo "Date/Time:        $(date)"
+          echo ""
+          echo "=== Installed Tools ==="
+          echo "Python:  $(python3 --version)"
+          echo "Node:    $(node --version)"
+          echo "Git:     $(git --version)"
+
+      # Step 3: Show GitHub context (metadata about the event that triggered this)
+      - name: "Show GitHub Context"
+        run: |
+          echo "=== GitHub Context ==="
+          echo "Repository:   ${{ github.repository }}"
+          echo "Branch:       ${{ github.ref }}"
+          echo "Commit SHA:   ${{ github.sha }}"
+          echo "Actor:        ${{ github.actor }}"
+          echo "Event:        ${{ github.event_name }}"
+          echo "Workflow:     ${{ github.workflow }}"
+          echo "Run ID:       ${{ github.run_id }}"
+          echo "Run Number:   ${{ github.run_number }}"
+
+  # =========================================================================
+  # JOB 2: Run in Parallel
+  # =========================================================================
+  # This job runs AT THE SAME TIME as "say-hello" because
+  # there is no "needs:" dependency between them.
+  #
+  # OBSERVE THIS IN THE GITHUB UI:
+  #   Both jobs will appear side by side in the Actions tab.
+  #   They start at approximately the same time.
+  #   Each gets its own fresh VM.
+
+  parallel-job:
+    name: "Parallel Job - System Check"
+    runs-on: ubuntu-latest           # Gets its OWN fresh VM
+
+    steps:
+      - name: "Prove this is a different VM"
+        run: |
+          echo "=== This is a SEPARATE virtual machine! ==="
+          echo "Hostname: $(hostname)"
+          echo "PID:      $$"
+          echo ""
+          echo "This job runs IN PARALLEL with 'Say Hello'."
+          echo "In the GitHub Actions UI, you'll see both jobs"
+          echo "running at the same time, side by side."
+
+      - name: "Check disk space"
+        run: |
+          echo "=== Disk Space ==="
+          df -h /
+          echo ""
+          echo "=== Memory ==="
+          free -h
+          echo ""
+          echo "=== CPU Info ==="
+          nproc
