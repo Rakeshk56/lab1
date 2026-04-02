@@ -25,4 +25,8 @@ jobs:
 
     - name: Run script
       run: |
-        python app.py         
+        python app.py      
+        
+    - name: Run tests
+      run: |
+        python tests\__init__.py
