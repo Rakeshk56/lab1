@@ -25,4 +25,4 @@ jobs:
 
     - name: Run script
       run: |
-        python app\api.py             
+        python app.py         
