@@ -58,7 +58,7 @@ jobs:
   # JOB 1: Say Hello
   # =========================================================================
   say-hello:
-    name: "Say Hello to the World"
+    name: "Say Hello to the World and zion"
     runs-on: ubuntu-latest           # Use a fresh Ubuntu VM
 
     steps:
